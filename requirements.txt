@@ -1,0 +1,4 @@
+matplotlib~=3.5.1
+numpy~=1.22.3
+setuptools~=57.0.0
+tqdm~=4.63.1

@@ -1,0 +1,12 @@
+random-batch
+  |-- setup.py
+  |-- README.md
+  |-- LICENSE
+  |-- requirements.txt
+  |-- src
+        |-- __init__.py
+        |-- random_batch.py
+        |-- random_batch_replace.py
+        |-- random_batch_MC.py*
+  |-- tests
+        |--stochastic_opinion_dynamics.py
