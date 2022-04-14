@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 def random_batch_replace(x: np.ndarray, tau: float, T: float, kernel, V, sigma: float = 0, num: int = None) -> np.ndarray:
     '''
-    This function operates the random batch method with replacement (RBM-r) for interacting particle system (IPS).
+    This function operates the random batch method with replacement (RBM-r) for interacting particle systems (IPS).
     RBM-r samples small batch of particles with replacement at each iteration, and evolves the IPS on batch basis.
 
     The method could significantly reduce the computational cost of an interacting particle system with binary
@@ -20,17 +20,17 @@ def random_batch_replace(x: np.ndarray, tau: float, T: float, kernel, V, sigma: 
            of x correspond to particles and axes. If the data is one-dimensional, x is flattened.
         tau: Time interval over which RBM operates
         T: Time span
-        kernel: A function that calculates the interacting force between two particles in the system. The kernel
-                function shall take (x_i - x_j) as the input and a float number representing the outgoing force as the
-                output. The kernel function shall be symmetric over zero. E.g., lambda xixj: 1/xixj
-        V: A function that calculates the external force, i.e., gradient of the external field. Input is the location.
-           Output is a float number.
+        kernel: A function that calculates the derivative of the interacting force between two particles in the system.
+                The kernel function shall take (x_i - x_j) as the input and a float number representing the derivative
+                of the outgoing force as the output. The kernel function shall be symmetric over zero. E.g., lambda xixj: 1/xixj.
+        V: A function that calculates the derivative of external force. Input is the current location of a particle.
+           Output is a float number. E.g., lambda x: x.
         sigma: Diffusion term
         num: Maximum number of time points to be returned. If None, num equals to ceil(T/tau)
 
     Returns:
         A two or three-dimensional numpy array (time by particles or time by particles by axes) consisting the locations
-        and time stamps of the particles.
+        and time stamps for the particles.
     '''
 
     # input error handling
@@ -78,13 +78,14 @@ def random_batch_replace(x: np.ndarray, tau: float, T: float, kernel, V, sigma: 
         x_prev = x_curr.copy()
 
         # sample with replacement, choose(N, p), p = 2
-        rand_indices = np.random.choice(range(N), 2)
+        rand_indices = np.random.choice(N, 2)
         i = rand_indices[0]
         j = rand_indices[1]
         K = kernel(x_prev[i] - x_prev[j])
         x_curr[i] += tau * (-V(x_prev[i]) + K) + sigma * np.sqrt(tau) * np.random.randn()
         x_curr[j] += tau * (-V(x_prev[j]) - K) + sigma * np.sqrt(tau) * np.random.randn()
 
+        # save to the output array
         if m >= m_out[next_out]:
             if d == 1:
                 out[next_out, :] = x_curr

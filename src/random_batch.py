@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 def random_batch(x: np.ndarray, tau: float, T: float, kernel, V, sigma: float = 0, num: int = None) -> np.ndarray:
     '''
-    This function operates the random batch method - 1 (RBM-1) for interacting particle system (IPS). RBM-1 shuffles and
+    This function operates the random batch method - 1 (RBM-1) for interacting particle systems (IPS). RBM-1 shuffles and
     divides the particles into small batches, and evolves the IPS on batch basis.
 
     The method could significantly reduce the computational cost of an interacting particle system with binary
@@ -20,17 +20,17 @@ def random_batch(x: np.ndarray, tau: float, T: float, kernel, V, sigma: float = 
            of x correspond to particles and axes. If the data is one-dimensional, x is flattened.
         tau: Time interval over which RBM operates
         T: Time span
-        kernel: A function that calculates the interacting force between two particles in the system. The kernel
-                function shall take (x_i - x_j) as the input and a float number representing the outgoing force as the
-                output. The kernel function shall be symmetric over zero. E.g., lambda xixj: 1/xixj
-        V: A function that calculates the external force, i.e., gradient of the external field. Input is the location.
-           Output is a float number.
+        kernel: A function that calculates the derivative of the interacting force between two particles in the system.
+                The kernel function shall take (x_i - x_j) as the input and a float number representing the derivative
+                of the outgoing force as the output. The kernel function shall be symmetric over zero. E.g., lambda xixj: 1/xixj.
+        V: A function that calculates the derivative of external force. Input is the current location of a particle.
+           Output is a float number. E.g., lambda x: x.
         sigma: Diffusion term
         num: Maximum number of time points to be returned. If None, num equals to ceil(T/tau)
 
     Returns:
         A two or three-dimensional numpy array (time by particles or time by particles by axes) consisting the locations
-        and time stamps of the particles.
+        and time stamps for the particles.
     '''
 
     # input error handling
