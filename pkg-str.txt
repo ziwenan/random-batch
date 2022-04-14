@@ -7,6 +7,10 @@ random-batch
         |-- __init__.py
         |-- random_batch.py
         |-- random_batch_replace.py
-        |-- random_batch_MC.py*
+        |-- random_batch_MC.py
+        |-- plot.py
   |-- tests
         |--stochastic_opinion_dynamics.py
+        |--stochastic_opinion_dynamics.md
+        |--Dyson_Brownian_motion.py
+        |--Dyson_Brownian_motion.md
