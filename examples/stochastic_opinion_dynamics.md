@@ -18,6 +18,10 @@ opinions” |x_i − x_j|. Since this is a self-organised system, V is set to a 
 ## Example 1 (1-D)
 ### Parameters
 ```python
+import numpy as np
+from src.interacting_particle_system import IPS
+from src import plot
+
 N = 100  # the number of particles
 x = np.random.rand(N) * 10  # (random) different opinions at t = 0
 tau = 1e-3  # time interval
@@ -25,14 +29,22 @@ T = 3  # time span
 alpha = 40  # scaling parameter
 phi = lambda y: abs(y) <= 1 # influence function
 kernel = lambda y: alpha * phi(y) * (-y) # binary interacting kernel
-V = lambda x: 0  # external force, set to zero
+V = 0  # external force, set to zero
 sigma = N ** -1/3  # diffusion term of the Brownian motion
 ```
 
 ### Running and plotting
 ```python
+ips_rbm = IPS(x, V, kernel)
+print(ips_rbm) # IPS: 100 particles in 1-D space, external force: fixed value, interacting force: vectorised function <lambda>
+ips_generator1 = ips_rbm.evolve(tau, T, method='random_batch')
+res_rbm = np.stack(ips_generator1, axis=0)
+
+ips_generator2 = ips_rbm.evolve(tau, T, method='random_batch_replace')
+res_rbmr = np.stack(ips_generator2, axis=0)
+
 fig, axs = plt.subplots(1, 2)
-plot.plot(res1_rbm, ax=axs[0])
+plot.plot(res_rbm, ax=axs[0])
 plot.plot(res1_rbmr, ax=axs[1])
 ```
 
@@ -55,8 +67,16 @@ sigma = N ** -1/3  # diffusion term of the Brownian motion
 
 ### Running and plotting
 ```python
-res2 = random_batch(x, tau, T, kernel, V, sigma, num=500)
-plot.animate(res2, scatter_kwargs={'s':5}, animate_kwargs={'interval':10})
+ips2_rbm = IPS(x, V, kernel)
+print(ips2_rbm) # IPS: 200 particles in 2-D space, external force: fixed value, interacting force: vectorised function <lambda>
+ips_generator = ips2_rbm.evolve(tau, T, thinning=50)
+
+import time
+t0 = time.time()
+res2_rbm = np.stack(ips_generator, axis=0)
+print(time.time() - t0) # 2.37 sec
+
+plot.animate(res2_rbm, scatter_kwoperators={'s':5}, animate_kwoperators={'interval':10})
 ```
 
 ![RBM-1](../fig/sod2.gif?raw=true)
