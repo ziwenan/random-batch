@@ -8,7 +8,7 @@ import pygame
 
 @dataclass(kw_only=True)
 class OutputTemplate:
-    """Class for storing output from evolving an interacting particle system."""
+    """Class for storing output from the IPS.evolve method."""
     position: np.ndarray = field(default=None)
     index: np.ndarray = field(default=None)
     attr_names: list[str] = field(default_factory=lambda: ['position', 'index'])
