@@ -174,7 +174,7 @@ class IPS(Particles):
     def add_controller(self, func_or_value, type='external', name=None, use_numba=True, force_nonvectorise=False,
                        verbose=False, suppress_warnings=False):
         '''
-        Add a controller to IPS.
+        Add a controller to the IPS.
 
         Args:
             func_or_value: The following three types of "func_or_value" argument are acceptable,
@@ -182,19 +182,20 @@ class IPS(Particles):
                           (2) a vectorised function (operates on a set of particles per execution),
                           (3) (a) fixed value(s) (scalar or array-like).
                           If "func_or_value" is a callable function and the number of arguments of the function is more
-                          than two, arguments must be correctly named. Name of the first argument must always be "x",
-                          representing the target (positions/velocities or binary interactions of them in case of
-                          interacting force) of the calculation.
+                          than two, the first argument must be named as "x", representing the target (positions/velocities 
+                          or binary interactions of them in case of an "interacting" controller) of the calculation. The 
+                          rest must be correctly named to match existing properties.
             type (str): Type of the controller. An "external" controller is a global effect influencing all the
                         particles in the system. An "interacting" controller affects binary pairs of particles depending
                         on their relative locations. In case of a non-vectorised function, the input variable of an
                         "external" controller function is the current location/velocity of a particle, whereas the input
                         of an "interacting" one is the difference of location/velocity.
-            name (str): Name of the controller. Avoid to use preoccupied names "x" and "all".
-            use_numba (bool): Only used when "func_or_value" is a function, use numba just-in-time compilation to
-                              optimise code, works only if function takes one argument.
-            force_nonvectorise (bool): Only used when "func_or_value" is a function, force non-vectorised mode if True.
-                                       Prevent misuse of automatic vectorisation.
+            name (str): Name of the controller. Avoid using preoccupied names such as "x" and "all".
+            use_numba (bool): Only used when "func_or_value" is a function, use numba just-in-time compiler to
+                              optimise function, works only if the function takes one argument as numba does not support 
+                              **kwargs arguments.
+            force_nonvectorise (bool): Only used when "func_or_value" is a function, force to use non-vectorised mode
+                                       if True to prevent unintended automatic vectorisation.
             verbose (bool):  Verbose messages.
             suppress_warnings (bool): Suppress warning messages.
         '''
@@ -242,6 +243,7 @@ class IPS(Particles):
         self.controller_objects[name] = C
 
     def reset_states(self):
+        '''Reset particle velocities if order is one, accelerations if order is two.'''
         if self.order == 'first':
             self.velocity = np.zeros_like(self.velocity)
         else:  # order == 'second'
@@ -249,10 +251,10 @@ class IPS(Particles):
 
     def apply_controllers(self, which='all'):
         '''
-        Apply controller(s).
+        Apply controllers to the particles.
 
         Args:
-            which (str): "all" to apply all controllers, or specify a controller name to apply.
+            which (str): "all" to apply all controllers, or specify the name of a controller to apply.
         '''
         if which not in ['all', self.controllers.keys()]:
             raise ValueError(f'"which" must be "all" or {", ".join(s for s in self.controllers.keys())}')
@@ -283,6 +285,7 @@ class IPS(Particles):
                 self.acceleration += increment
 
     def apply_stochastic_terms(self, dt, sigma, gamma):
+        '''Add stochsticity to particle positions.'''
         if self.order == 'first':
             if self._d == 1:
                 self.position += sigma * np.sqrt(dt) * np.random.randn(self._num)
@@ -297,6 +300,12 @@ class IPS(Particles):
                 self.velocity += sigma * np.sqrt(dt) * np.random.randn(self._num, self._d)
 
     def update_states(self, dt):
+        '''
+        Update paticles states.
+        
+        Arg:
+            dt (float): Time interval.
+        '''
         if self.order == 'first':
             self.position += self.velocity * dt
         else:  # order == 'second'
