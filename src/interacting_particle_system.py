@@ -17,18 +17,19 @@ class IPS(Particles):
     '''
     IPS (interacting particle system).
 
-    IPS are continuous-time Markov jump processes describing the collective behavior of stochastically interacting
+    IPS's are continuous-time Markov jump processes describing the collective behavior of stochastically interacting
     particles. An IPS class object has two different types of components, properties and controllers. Properties are
-    used to store the information of current states of IPS. Controllers are used to modify positions and velocities of
-    the particles. Properties can be used as input arguments of controller functions. The "update" method updates
+    used to store the information of current states of an IPS. Controllers are used to modify positions and velocities of
+    particles. Properties can be used as input arguments of controller functions. The "update" method updates
     properties for a short time interval dt. The "evolve" method updates properties iteratively until time T.
 
     Properties, including built-in and custom ones, of the IPS are maintained as class attributes. Built-in properties
-    are initialised upon construction, and will be updated while running the "update" or "evolve" method. Both public
-    attributes (e.g., position, velocity, etc.) and private attributes with a getter method (d, num, index) are built-in
-    properties. Custom properties are supplements to built-in properties. They are user-defined properties in order to
-    provide additional features of the IPS. Custom properties can be added/accessed with the "add_property/get_property"
-    method. See examples for more hints.
+    are initialised upon construction, and will be updated while running the "update" or "evolve" method. There are chiefly 
+    two purposes of a property, to get track of the current state, and to be supplied as an input variable of another 
+    function. Both public attributes (e.g., position, velocity, etc.) and private attributes with a getter method (d, num, 
+    index) are built-in properties. Custom properties are supplements to built-in properties. They are user-defined properties 
+    in order to provide additional features of the IPS. Custom properties can be added/accessed with the 
+    "add_property/get_property" method. See examples for more hints.
 
     Attributes:
         position: 1D (particles) or 2D (particles by axes) numpy array, position of the particles.
@@ -77,26 +78,25 @@ class IPS(Particles):
 
     def add_property(self, value, name, fn_compute=None, eager_evaluation=False):
         '''
-        Add custom property to the IPS.
+        Add a custom property to the IPS.
 
         Custom properties of IPS are treated as read-only attributes. Writing to custom properties is viable only
-        through the computing function given by the "fn_compute" argument. The main purpose of properties is to feed as
-        input arguments of controller functions and computing functions of other properties.
+        through the computing function given by the "fn_compute" argument. Properties can be used as input arguments 
+        of a controller function or the computing function for another property.
 
         By default, if "fn_compute" is None, the custom property cannot be modified. Conversely, if a callable function
         is assigned to "fn_compute", the custom property will be handled as a computed attribute. It will be
-        updated/written upon calling or while running "update" and "evolve" method.
+        updated/written upon calling or while running the "update" and "evolve" method.
 
         Args:
             value: Initial value of the custom property.
             name (str): Name of the custom property.
-            fn_compute: If provided, it must be a callable that will be called when updating the custom property. Input
-                        of the callable should be keyword argument(s), whereas the keyword must be the name of existing
-                        property. Output is the computed property, which should not change the type and shape of the
-                        previous one.
-            eager_evaluation (bool): Whether "fn_compute" should be handled as an eager function (i.e., evaluate
-                                     whenever "update" or "evolve" or "get_property" is called), or a lazy one (i.e.,
-                                     evaluate only when "get_property" is called).
+            fn_compute: If provided, it must be a callable that will be called to modify the custom property. Input of 
+                        the callable should be keyword argument(s), where a keyword must have the name with an existing
+                        property. Output is the computed property, which should preserve data type.
+            eager_evaluation (bool): Only used when "fn_compute" is provided. If True, "fn_compute" will be handled as 
+                                     an eager function (i.e., evaluate whenever "update" or "evolve" or "get_property" 
+                                     is called), or a lazy one (i.e., evaluate only when "get_property" is called).
         '''
         if getattr(self, name, None) is not None:
             warnings.warn(f"Overwriting attribute {name}")
@@ -108,14 +108,14 @@ class IPS(Particles):
             setattr(self, name, property_)
             try:
                 valid = self._check_property_validity(fn_compute)
-                assert (valid is not None)
+                assert (valid is not None), f'"{name}"\'s computing function is not callable.'
                 property_ = {'value': value, 'wrapper_fn_compute': valid, 'eager_evaluation': eager_evaluation}
                 setattr(self, name, property_)
-            except Exception as e:
+            except Exception as exc:
                 delattr(self, name)
                 raise ValueError(
                     f'Fail to add property "{name}". The following error occurred while running \
-                    "{fn_compute.__name__}": {str(e)}') from None
+                    "{fn_compute.__name__}": {str(exc)}') from None
 
         if name not in self.custom_properties:
             self.custom_properties.append(name)
