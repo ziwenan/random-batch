@@ -10,7 +10,7 @@ class Particles:
     Representation of a set of particles.
 
     There is no restriction to the dimension of the space (d). Position and velocity are stored as 2D numpy array when
-    d>=2. Graphical visualisation is supported for d<=3.
+    d>=2.
 
     Attributes:
         position: 1D (particles) or 2D (particles by axes) numpy array, position of the particles.
@@ -122,14 +122,14 @@ class Particles:
 
     def apply_boundary_condition(self, verbose=False):
         '''
-        Apply boundary condition to the particle system.
+        Apply boundary condition to the particles.
 
-        Readjust the position of the particles according to the class "boundary_condition". If "boundary_condition" is
-        "absorbing", particles exceeding boundaries are relocated to the closest boundary, and velocities are set to
-        zero. If "boundary_condition" is "elastic" or "periodic", TODO.
+        Readjust the position of particles according to "self.boundary_condition". If boundary condition is
+        "absorbing", particles outside of boundaries are relocated to the closest boundary. If boundart condition is 
+        "elastic" or "periodic", TODO.
 
         Args:
-            verbose: Boolean, whether to display messages when applying boundary condition to more than one particles.
+            verbose: Boolean, display messages when applying boundary condition to particles.
         '''
         if self.boundary_condition is not None:
             if self.lower is not None:
@@ -203,8 +203,8 @@ class Particles:
 
     def pairwise_diff(self):
         '''
-        Compute the pairwise position difference between particles. Every two consecutive particles are grouped as a pair, e.g., (0, 1), (2, 3), ..., (2*k, 2*k+1) are
-        grouped together during computation.
+        Compute the pairwise position difference between two particles. Every two consecutive particles 
+        are grouped as a pair, e.g., (0, 1), (2, 3), ..., (2*k, 2*k+1) are grouped together during computation.
 
         Returns:
             A numpy array of pairwise differences.
