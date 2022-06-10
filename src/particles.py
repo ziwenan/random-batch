@@ -1,60 +1,47 @@
-# src/particles
+# src/particles.py
+
+from warnings import warn
+
 import numpy as np
-
-
-# import warnings
-
-
-class Particle:
-    '''
-    Representation of a single particle. The dimension of the space is d. Visualisation is supported when d is at most three.
-    '''
-
-    __slots__ = ['_d', 'position', 'velocity', 'lower', 'upper', '_id']
-
-    def __init__(self, position, velocity=None, lower=None, upper=None, id: int = None):
-        assert position is not None, f'Position must not be None'
-        self._d = 1 if np.isscalar(position) else np.size(position)
-        self.position = self._set_value(position, 'position')
-        self.velocity = self._set_value(velocity, 'velocity')
-        self.lower = self._set_value(lower, 'lower')
-        self.upper = self._set_value(upper, 'upper')
-        self._id = 0 if id is None else id
-
-    def _set_value(self, val, operator_name):
-        if val is None:
-            return 0 if self._d == 1 else np.zeros(self._d)
-        else:
-            val_dim = 1 if np.isscalar(val) else np.size(val)
-            assert self._d == val_dim, f'The dimension of {operator_name}:{val_dim} should be {self._d}'
-            return val if self._d == 1 else np.asarray(val)
-
-    def init_graphic(self):
-        pass
-
-    def move(self):
-        pass
-
-    @property
-    def d(self):
-        return self._d
-
-    @property
-    def id(self):
-        return self._id
-
-    def __str__(self):
-        return f'particle id{self._id}, location: {self.position}, velocity: {self.velocity}'
 
 
 class Particles:
     '''
-    Representation of a group of particles. The dimension of the space is d. Matplotlib visualisation is supported when d <= 3.
+    Representation of a set of particles.
+
+    There is no restriction to the dimension of the space (d). Position and velocity are stored as 2D numpy array when
+    d>=2. Graphical visualisation is supported for d<=3.
+
+    Attributes:
+        position: 1D (particles) or 2D (particles by axes) numpy array, position of the particles.
+        velocity: 1D (particles) or 2D (particles by axes) numpy array, velocity of the particles.
+        acceleration: 1D (particles) or 2D (particles by axes) numpy array, acceleration of the particles.
+        lower: Lower bound of the particle space.
+        upper: Upper bound of the particle space.
+        boundary_condition (str): Boundary condition of the particle space.
+        column_names (List(str)): List of column names.
+        speed: Numpy array, speed of the particles.
     '''
 
-    __slots__ = ['_d', '_num', 'position', 'velocity', 'lower', 'upper', '_id', 'speed']
+    __slots__ = ['_d', '_num', 'position', 'velocity', 'acceleration', 'lower', 'upper', 'boundary_condition', '_index',
+                 'column_names','speed']
 
-    def __init__(self, position, velocity=None, lower=None, upper=None, id=None):
+    def __init__(self, position, velocity=None, acceleration=None, lower=None, upper=None, boundary_condition=None,
+                 column_names=None, index=None):
+        '''
+        Initialise a particles class.
+
+        Args:
+            position: 1D (particles) or 2D (particles by axes) array-like object, position of the particles.
+            velocity: 1D (particles) or 2D (particles by axes) array-like object, velocity of the particles.
+            acceleration: 1D (particles) or 2D (particles by axes) array-like object, velocity of the particles.
+            lower: Lower bound of the particle space, length should match the dimension of the space.
+            upper: Upper bound of the particle space, length should match the dimension of the space.
+            boundary_condition (str): Boundary condition of the particle space, None or "absorbing" or "elastic" or "periodic".
+            column_names (List[str]): List of column names.
+            index: Array, index of the particles.
+        '''
+        # TODO: rework absorbing boundary condition
         assert position is not None, f'Position must not be None'
         position = np.asarray(position)
         if position.ndim == 1:
@@ -64,24 +51,61 @@ class Particles:
             self._num = position.shape[0]
             self._d = position.shape[1]
         else:
-            raise ValueError('"position" array must be 1-D or 2-D')
+            raise ValueError('"position" array must be 1D (particles) or 2D (particles by axes)')
         self.position = self._set_value(position, 'position')
         self.velocity = self._set_value(velocity, 'velocity')
+        self.acceleration = self._set_value(acceleration, 'acceleration')
         self.calc_speed()
 
-        if lower is not None and not np.isscalar(lower):
-            lower = np.asarray(lower)
-            assert lower.ndim == 1 and lower.size == self._d, f'"lower" must be an array-like object of size {self._d}'
+        if boundary_condition not in [None, 'absorbing', 'elastic', 'periodic']:
+            raise ValueError(f'"boundary_condition" must be None or "absorbing" or "elastic" or "periodic".')
+        if boundary_condition is not None and lower is None and upper is None:
+            warn(f'"lower" and "upper" are not given for "boundary_condition" {boundary_condition}')
+            boundary_condition = None
+        if lower is not None:
+            if self._d == 1:
+                assert np.isscalar(lower)
+            else:
+                lower = np.asarray(lower)
+                assert lower.ndim == 1 and lower.size == self._d, f'"lower" must be an array-like object of size {self._d}'
+            if boundary_condition is None:
+                boundary_condition = 'absorbing'
+        if upper is not None:
+            if self._d == 1:
+                assert np.isscalar(upper)
+            else:
+                upper = np.asarray(upper)
+                assert upper.ndim == 1 and upper.size == self._d, f'"upper" must be an array-like object of size {self._d}'
+            if boundary_condition is None:
+                boundary_condition = 'absorbing'
         self.lower = lower
-
-        if upper is not None and not np.isscalar(upper):
-            upper = np.asarray(upper)
-            assert upper.ndim == 1 and upper.size == self._d, f'"upper" must be an array-like object of size {self._d}'
         self.upper = upper
+        self.boundary_condition = boundary_condition
         self.apply_boundary_condition()
-        self._id = np.arange(self._num) if id is None or len(id) != self._num else id
+        if column_names is None:
+            if self._d == 1:
+                self.column_names = None
+            elif self._d == 2:
+                self.column_names = ['x', 'y']
+            elif self._d == 3:
+                self.column_names = ['x', 'y', 'z']
+            else:
+                self.column_names = ['axis'+str(s) for s in range(self._d)]
+        elif len(column_names) == self._d:
+            self.column_names = [str(s) for s in column_names]
+        else:
+            raise ValueError(f'Invalid "column_names", {column_names}')
+        if index is None:
+            self._index = np.arange(self._num)
+        else:
+            uniq, index = np.unique(index, return_index=True)
+            index = uniq[index.argsort()]
+            if len(index) == self._num:
+                self._index = index
+            else:
+                self._index = np.arange(self._num)
 
-    def _set_value(self, val, operator_name):
+    def _set_value(self, val, name):
         if val is None:
             if self._d == 1:
                 return np.zeros(self._num)
@@ -94,54 +118,88 @@ class Particles:
             elif val.ndim == 2 and (self._num, self._d) == val.shape:
                 return val
             else:
-                raise ValueError(f'The dimension of {operator_name}:{val.shape} should be ({self._num}, {self._d})')
+                raise ValueError(f'The dimension of {name}:{val.shape} should be ({self._num}, {self._d})')
 
-    def apply_boundary_condition(self):
-        if self.lower is not None:
-            if self._d == 1:
-                count = np.sum(self.position < self.lower)
-                self.position = np.where(self.position < self.lower, self.lower, self.position)
-                if count > 0:
-                    print(f'Apply lower bound to {count} particles')
-            else:
-                count = 0
-                for i in range(self._d):
-                    count += np.sum(self.position[:, i] < self.lower[i])
-                    self.position[:, i] = np.where(self.position[:, i] < self.lower[i], self.lower[i],
-                                                   self.position[:, i])
-                if count > 0:
-                    print(f'Apply lower bound to {count} particles')
-        if self.upper is not None:
-            if self._d == 1:
-                count = np.sum(self.position > self.upper)
-                self.position = np.where(self.position > self.upper, self.upper, self.position)
-                if count > 0:
-                    print(f'Apply upper bound to {count} particles')
-            else:
-                count = 0
-                for i in range(self._d):
-                    count += np.sum(self.position[:, i] > self.upper[i])
-                    self.position[:, i] = np.where(self.position[:, i] > self.upper[i], self.upper[i],
-                                                   self.position[:, i])
-                if count > 0:
-                    print(f'Apply upper bound to {count} particles')
+    def apply_boundary_condition(self, verbose=False):
+        '''
+        Apply boundary condition to the particle system.
+
+        Readjust the position of the particles according to the class "boundary_condition". If "boundary_condition" is
+        "absorbing", particles exceeding boundaries are relocated to the closest boundary, and velocities are set to
+        zero. If "boundary_condition" is "elastic" or "periodic", TODO.
+
+        Args:
+            verbose: Boolean, whether to display messages when applying boundary condition to more than one particles.
+        '''
+        if self.boundary_condition is not None:
+            if self.lower is not None:
+                if self._d == 1:
+                    count = 0
+                    if verbose:
+                        count = np.sum(self.position < self.lower)
+                    if self.boundary_condition == 'absorbing':
+                        self.position = np.where(self.position < self.lower, self.lower, self.position)
+                    elif self.boundary_condition == 'elastic':  # elastic and periodic
+                        pass
+                    if verbose and count > 0:
+                        print(f'Apply lower bound to {count} particles')
+                else:
+                    count = 0
+                    for i in range(self._d):
+                        if verbose:
+                            count += np.sum(self.position[:, i] < self.lower[i])
+                        if self.boundary_condition == 'absorbing':
+                            self.position[:, i] = np.where(self.position[:, i] < self.lower[i], self.lower[i],
+                                                           self.position[:, i])
+                        elif self.boundary_condition == 'elastic':
+                            pass
+                    if verbose and count > 0:
+                        print(f'Apply lower bound to {count} particles')
+            if self.upper is not None:
+                if self._d == 1:
+                    count = 0
+                    if verbose:
+                        count = np.sum(self.position > self.upper)
+                    if self.boundary_condition == 'absorbing':
+                        self.position = np.where(self.position > self.upper, self.upper, self.position)
+                    elif self.boundary_condition == 'elastic':
+                        pass
+                    if verbose and count > 0:
+                        print(f'Apply upper bound to {count} particles')
+                else:
+                    count = 0
+                    for i in range(self._d):
+                        if verbose:
+                            count += np.sum(self.position[:, i] > self.upper[i])
+                        if self.boundary_condition == 'absorbing':
+                            self.position[:, i] = np.where(self.position[:, i] > self.upper[i], self.upper[i],
+                                                           self.position[:, i])
+                        elif self.boundary_condition == 'elastic':
+                            pass
+                    if verbose and count > 0:
+                        print(f'Apply upper bound to {count} particles')
 
     def calc_speed(self):
+        '''Calculate speed.'''
         if self._d == 1:
             self.speed = np.abs(self.velocity)
         else:
             self.speed = np.sqrt(np.sum(self.velocity * self.velocity, axis=1))
 
-    def shuffle(self):
-        '''
-        Shuffle particles.
-        '''
+    def shuffle(self, seed=None, return_index=False):
+        '''Shuffle particle positions, velocities, accelerations.'''
         index = np.arange(self._num)
+        np.random.seed(seed)
         np.random.shuffle(index)
         self.position = self.position[index]
         self.velocity = self.velocity[index]
+        self.acceleration = self.acceleration[index]
         self.calc_speed()
-        self._id = self._id[index]
+        self._index = self._index[index]
+        if return_index:
+            return index
+        else:
+            return None
 
     def pairwise_diff(self):
         '''
@@ -161,18 +219,24 @@ class Particles:
 
     @property
     def d(self):
+        '''int: Dimension of the particle space.'''
         return self._d
 
     @property
     def num(self):
+        '''int: Total number of the particles.'''
         return self._num
 
     @property
-    def id(self):
-        return self._id
+    def index(self):
+        '''int[:]: Indices of the particles.'''
+        return self._index
 
     def __str__(self):
-        return f'{self._num} particles in {self._d}-D space'
+        string = []
+        string.append(f'{self._num} particles in {self._d}D space')
+        string.append(None if self.boundary_condition is None else f'boundary: {self.boundary_condition}')
+        return ', '.join(s for s in string if s)
 
 
 if __name__ == '__main__':

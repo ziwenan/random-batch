@@ -10,10 +10,11 @@ An efficient algorithm for interacting particle systems (IPS).
 
 ### Binary interacting particle system
 
-IPS is a stochastic process that describes the evolution of a population over time, e.g., Vicsek model for collective
-motion and swarm behaviour, flocking in school of fishes, group of birds, chemotaxis of bacteria, consensus clusters in
-opinion dynamics. This python project focuses on IPS with binary interactions. The stochastic process for an N-particle
-IPS with binary interactions is given by
+IPS are continuous-time Markov jump processes describing the collective behavior of stochastically interacting 
+components. IPS can be used to describe collective motion and swarm behaviour such as flocking in school of 
+fishes, group of birds, chemotaxis of bacteria, consensus clusters in opinion dynamics. This python project 
+focuses on IPS with binary interactions. The stochastic process for an N-particle IPS with binary interactions 
+is given by
 
 <center><img src="https://render.githubusercontent.com/render/math?math=\color{blue}{dX^i=-\nabla V(X^i)dt %2b \dfrac{1}{N-1}\sum_{j:j \neq i} K(X^i-X^j)dt %2b \sigma dB^i,\ i=1,\ldots,N},"></center>
 
@@ -24,9 +25,9 @@ randomness.
 
 ### Random batch and random batch with replacement
 
-While direct computation of the fully coupled system could be prohibitively expensive when N is medium or large, RBM is
+While direct computation of the fully coupled system could be prohibitively expensive when N is medium or loperatore, RBM is
 able to reduce the computational cost significantly from O(N^2) to O(N) per time step. The intuition behind RBM is to
-evolve the IPS in small batches of particles, while the law of large number guarantees asymptotic convergence as
+evolve the IPS in small batches of particles, while the law of loperatore number guarantees asymptotic convergence as
 <img src="https://render.githubusercontent.com/render/math?math=N \rightarrow \infty"> under mild conditions. Two RBM
 methods are provided in this python project, namely RBM-1 and RBM-replace. RBM-1 shuffles and divides the particles into
 small batches per time step. RBM-replace samples random particles with replacement. For more information, please resort

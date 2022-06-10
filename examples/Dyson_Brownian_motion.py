@@ -29,4 +29,4 @@ res = random_batch_MC(x, tau, T, U_long, U_short, V, w, m, beta, thinning)
 plot.plot(res)
 
 res_aug = np.stack([res, np.zeros(res.shape)], axis=2)
-plot.animate(res_aug, scatter_kwargs={'s':1}, animate_kwargs={'interval':10})
+plot.animate(res_aug, scatter_kwoperators={'s':1}, animate_kwoperators={'interval':10})
