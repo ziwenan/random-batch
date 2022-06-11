@@ -76,24 +76,19 @@ class TestOutputTemplate(unittest.TestCase):
         n = 100
         ips = IPS(np.random.rand(n, 2), order='first')
         ips.add_property(-10, 'alpha')
-
-        def average_speed(speed):
-            return np.mean(speed)
-
         ips.velocity = np.ones_like(ips.velocity)
         ips.add_property(0, 'average_speed', fn_compute=lambda speed: np.mean(speed))
-        print(f'as0: {ips.get_property("average_speed"):.4f}')
+        # print(f'as0: {ips.get_property("average_speed"):.4f}')
         ips.add_controller(0, type='external', name='V')
         ips.add_controller(lambda x, alpha: alpha * np.where(abs(x) <= 0.3, 1, 0) * (-x), type='interacting', name='K')
         print(ips)
         start = time.perf_counter()
-        res = ips.evolve(dt=1e-3, T=10, sigma=0.005, thinning=100,
+        res = ips.evolve(dt=1e-3, T=3, sigma=0.005, thinning=100, options=['velocity'],
                          early_stopping=dict(property='average_speed', value=0.0001))
         end = time.perf_counter()
         print(f'Time Elapsed: {end - start:.5f} sec')
-        print('length', res.length)
         print(f'as1: {ips.get_property("average_speed"):.4f}')
-
+        print(ips)
         self.assertEqual(isinstance(res, OutputTemplate), True)
         res.render()
 

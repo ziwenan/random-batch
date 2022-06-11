@@ -49,38 +49,104 @@ class OutputTemplate:
                     f'The object to plot, "{which}", must be a ({self.length}, {self.num}, {self.d}) numpy array.')
         raise NotImplementedError
 
-    def render(self, lower=None, upper=None, width=1366, height=768, loop=True):
+    def render(self, color=None, lower=None, upper=None, width=1366, height=768, loop=True, dumpFrames=False,
+               backend=None, caption='IPS simulator', bg=(255, 255, 255)):
+        '''
+        Render animations of the particle system.
+
+        Args:
+            color: A color (Color or int or tuple(int, int, int, [int])) or a list of colors or an attribute name.
+            lower (list[float]): A list of minimum value for each axis. Inherits from "boundary_condition"
+            upper (list[float]): A list of maximum value for each axis.
+            width (int): Window width.
+            height (int): Window height.
+            loop (bool): Loop animations.
+            dumpFrames (bool): Dump frames to local depository.
+            backend (str): Image rendering backend, "pygame" (default) or "panda3D" or "matplotlib".
+
+        Returns:
+            Any.
+        '''
+        assert self.d <= 3, f'Rendering is not supported for {self.d}D space.'
+
+        # setup colors
+        if color is None:
+            if getattr(self, 'velocity', None) is not None:
+                pass # use velocity to define color
+            color = pygame.Color('blue')
+        if isinstance(color, list):
+            assert len(color) == self.num, f'Length of "color" list must be {self.num}.'
+        else:
+            color = [color for _ in range(self.num)]
+        bg = pygame.Color(bg)
+        box_color = pygame.Color(255 - bg.r, 255 - bg.g, 255 - bg.b)
+
+        # setup window size and region of plotting
         if lower is None:
-            lower = self.position.min(axis=(0,1))
+            lower = self.position.min(axis=(0, 1))
         if upper is None:
-            upper = self.position.max(axis=(0,1))
+            upper = self.position.max(axis=(0, 1))
         padx = int(width * 0.05)
         pady = int(height * 0.05)
         scalex = 0.9 * width / (upper[0] - lower[0])
         scaley = 0.9 * height / (upper[1] - lower[1])
 
-        black, white, blue = (20, 20, 20), (230, 230, 230), (0, 154, 255)
+        def pos_to_pixel(pos):
+            x = padx + int((pos[0] - lower[0]) * scalex)
+            y = pady + int((pos[1] - lower[1]) * scaley)
+            return x, y
+
+        topleft = pos_to_pixel((lower[0], lower[1]))
+        topright = pos_to_pixel((upper[0], lower[1]))
+        bottomleft = pos_to_pixel((lower[0], upper[1]))
+        bottomright = pos_to_pixel((upper[0], upper[1]))
+
+        # dump frames and animation backend
+        if dumpFrames:
+            raise NotImplementedError
+        if backend is None:
+            backend = 'pygame'
+        if backend not in ['pygame', 'panda3D', 'matplotlib']:
+            raise ValueError(f'"backend" must be "pygame" or "panda3D" or "matplotlib"')
+        if backend in ['panda3D', 'matplotlib']:
+            raise NotImplementedError
 
         pygame.init()
-        pygame.display.set_caption("3D cube Projection")
+        pygame.display.set_caption(caption)
         screen = pygame.display.set_mode((width, height))
         clock = pygame.time.Clock()
         fps = 10
 
-        while True:
-            pygame.event.get()
-            for i in range(self.length):
+        done = False
+        while not done:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    done = True
+            for k in range(self.length):
                 clock.tick(fps)
-                screen.fill(white)
+                screen.fill(bg)
 
-                for point in self.position[i]:
-                    x = padx + int((point[0] - lower[0]) * scalex)
-                    y = pady + int((point[1] - lower[1]) * scaley)
-                    pygame.draw.circle(screen, blue, (x, y), 3)
+                # box
+                pygame.draw.line(screen, box_color, bottomleft, bottomright, width=3)
+                pygame.draw.line(screen, box_color, bottomleft, topleft, width=3)
+                pygame.draw.line(screen, box_color, topleft, topright, width=3)
+                pygame.draw.line(screen, box_color, topright, bottomright, width=3)
+
+                for i, point in enumerate(self.position[k]):
+                    if point[0] < lower[0] or point[0] > upper[0] or point[1] < lower[1] or point[1] > upper[1]:
+                        continue
+                    if self.d == 1:
+                        pixel = pos_to_pixel((point[0], (lower[1] + upper[1]) / 2))
+                    elif self.d == 2:
+                        pixel = pos_to_pixel(point)
+                    else:  # self == 3
+                        raise NotImplementedError
+                    x = pixel[0]
+                    y = pixel[1]
+                    pygame.draw.circle(screen, color[i], (x, y), 3)
                 pygame.display.update()
             if not loop:
-                break
+                done = True
 
         pygame.display.quit()
         pygame.quit()
-

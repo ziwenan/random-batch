@@ -16,8 +16,8 @@ class Particles:
         position: 1D (particles) or 2D (particles by axes) numpy array, position of the particles.
         velocity: 1D (particles) or 2D (particles by axes) numpy array, velocity of the particles.
         acceleration: 1D (particles) or 2D (particles by axes) numpy array, acceleration of the particles.
-        lower: Lower bound of the particle space.
-        upper: Upper bound of the particle space.
+        lower (list[float]): Lower bound(s) of the particle space.
+        upper (list[float]): Upper bound(s) of the particle space.
         boundary_condition (str): Boundary condition of the particle space.
         column_names (List(str)): List of column names.
         speed: Numpy array, speed of the particles.
@@ -35,9 +35,10 @@ class Particles:
             position: 1D (particles) or 2D (particles by axes) array-like object, position of the particles.
             velocity: 1D (particles) or 2D (particles by axes) array-like object, velocity of the particles.
             acceleration: 1D (particles) or 2D (particles by axes) array-like object, velocity of the particles.
-            lower: Lower bound of the particle space, length should match the dimension of the space.
-            upper: Upper bound of the particle space, length should match the dimension of the space.
-            boundary_condition (str): Boundary condition of the particle space, None or "absorbing" or "elastic" or "periodic".
+            lower (list[float]): Lower bound(s) of the particle space. Length should match the dimension of the space.
+            upper (list[float]): Upper bound(s) of the particle space. Length should match the dimension of the space.
+            boundary_condition (str): Boundary condition of the particle space, None or "absorbing" or "elastic" or
+                                      "periodic".
             column_names (List[str]): List of column names.
             index: Array, index of the particles.
         '''

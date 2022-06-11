@@ -19,30 +19,30 @@ class IPS(Particles):
 
     IPS's are continuous-time Markov jump processes describing the collective behavior of stochastically interacting
     particles. An IPS class object has two different types of components, properties and controllers. Properties are
-    used to store the information of current states of an IPS. Controllers are used to modify positions and velocities of
-    particles. Properties can be used as input arguments of controller functions. The "update" method updates
+    used to store the information of current states of an IPS. Controllers are used to modify positions and velocities
+    of particles. Properties can be used as input arguments of controller functions. The "update" method updates
     properties for a short time interval dt. The "evolve" method updates properties iteratively until time T.
 
     Properties, including built-in and custom ones, of the IPS are maintained as class attributes. Built-in properties
-    are initialised upon construction, and will be updated while running the "update" or "evolve" method. There are chiefly 
-    two purposes of a property, to get track of the current state, and to be supplied as an input variable of another 
-    function. Both public attributes (e.g., position, velocity, etc.) and private attributes with a getter method (d, num, 
-    index) are built-in properties. Custom properties are supplements to built-in properties. They are user-defined properties 
-    in order to provide additional features of the IPS. Custom properties can be added/accessed with the 
-    "add_property/get_property" method. See examples for more hints.
+    are initialised upon construction, and will be updated while running the "update" or "evolve" method. There are
+    chiefly two purposes of a property, to get track of the current state, and to be supplied as an input variable of
+    another function. Both public attributes (e.g., position, velocity, etc.) and private attributes with a getter
+    method (d, num, index) are built-in properties. Custom properties are supplements to built-in properties. They are
+    user-defined properties in order to provide additional features of the IPS. Custom properties can be added/accessed
+    with the "add_property/get_property" method. See examples for more hints.
 
     Attributes:
         position: 1D (particles) or 2D (particles by axes) numpy array, position of the particles.
         velocity: 1D (particles) or 2D (particles by axes) numpy array, velocity of the particles.
         acceleration: 1D (particles) or 2D (particles by axes) numpy array, acceleration of the particles.
-        lower: Lower bound of the particle space.
-        upper: Upper bound of the particle space.
+        lower (list[float]): Lower bound(s) of the particle space.
+        upper (list[float]): Upper bound(s) of the particle space.
         boundary_condition (str): Boundary condition of the particle space.
         speed: Numpy array, speed of the particles.
         t (float): Current time of the IPS.
         order (str): Order of the IPS, "first" or "second". In a first order IPS, controllers modifies particle
                      positions. In a second order IPS, controllers modifies particle velocities.
-        custom_properties (List[str]): List of the names of custom properties.
+        custom_properties (dict['wrapper_fn_compute':Callable, 'eager_evaluation':bool]): Dict.
         controllers (dict): Dict.
         controller_objects (dict): Dict.
         column_names (List[str]): List of column names.
@@ -58,9 +58,10 @@ class IPS(Particles):
             order (str): Order of the interacting particle system, "first" or "second".
             t (float): Current time, a non-negative float.
             velocity: 1D (particles) or 2D (particles by axes) Array-like object, velocity of the particles.
-            lower: Lower bound of the particle space, length should match the dimension of the space.
-            upper: Upper bound of the particle space, length should match the dimension of the space.
-            boundary_condition (str): Boundary condition of the particle space, None or "absorbing" or "elastic" or "periodic".
+            lower (list[float]): Lower bound(s) of the particle space. Length should match the dimension of the space.
+            upper (list[float]): Upper bound(s) of the particle space. Length should match the dimension of the space.
+            boundary_condition (str): Boundary condition of the particle space, None or "absorbing" or "elastic" or
+                                      "periodic".
             column_names (List[str]): List of column names.
             index: Array, index of the particles.
         '''
@@ -71,14 +72,14 @@ class IPS(Particles):
         self.calc_speed()
         self.order = order
         self.t = t if t > 0 else 0
-        self.custom_properties = []
+        self.custom_properties = dict()
         self.controllers = dict()
         self.controller_objects = dict()
         self._unnamed_controller_counter = 0
 
     def add_property(self, value, name, fn_compute=None, eager_evaluation=False):
         '''
-        Add a custom property to the IPS.
+        Adds a custom property to the IPS.
 
         Custom properties of IPS are treated as read-only attributes. Writing to custom properties is viable only
         through the computing function given by the "fn_compute" argument. Properties can be used as input arguments 
@@ -101,15 +102,14 @@ class IPS(Particles):
         if getattr(self, name, None) is not None:
             warnings.warn(f"Overwriting attribute {name}")
         if fn_compute is None:
-            property_ = {'value': value, 'wrapper_fn_compute': None, 'eager_evaluation': False}
-            setattr(self, name, property_)
+            property_ = {'wrapper_fn_compute': None, 'eager_evaluation': False}
+            setattr(self, name, value)
         else:
-            property_ = {'value': value}
-            setattr(self, name, property_)
+            setattr(self, name, value)
             try:
                 valid = self._check_property_validity(fn_compute)
                 assert (valid is not None), f'"{name}"\'s computing function is not callable.'
-                property_ = {'value': value, 'wrapper_fn_compute': valid, 'eager_evaluation': eager_evaluation}
+                property_ = {'wrapper_fn_compute': valid, 'eager_evaluation': eager_evaluation}
                 setattr(self, name, property_)
             except Exception as exc:
                 delattr(self, name)
@@ -118,11 +118,11 @@ class IPS(Particles):
                     "{fn_compute.__name__}": {str(exc)}') from None
 
         if name not in self.custom_properties:
-            self.custom_properties.append(name)
+            self.custom_properties[name] = property_
 
     def _wrapper_compute_property(self, fn_compute):
         '''
-        Create a wrapper function to compute custom property.
+        Creates a wrapper function to compute custom property.
 
         Args:
             fn_compute: A function used to update the custom property. Input arguments should use the same keywords with
@@ -163,18 +163,18 @@ class IPS(Particles):
             Value of the property.
         '''
         if name in self.custom_properties:
-            wrapper = getattr(self, name).get('wrapper_fn_compute')
+            wrapper = self.custom_properties[name].get('wrapper_fn_compute')
             if wrapper is not None:  # update
                 new_value = wrapper()
-                getattr(self, name)['value'] = new_value
-            return getattr(self, name)['value']
+                setattr(self, name, new_value)
+            return getattr(self, name)
         else:
             return getattr(self, name)
 
     def add_controller(self, func_or_value, type='external', name=None, use_numba=True, force_nonvectorise=False,
                        verbose=False, suppress_warnings=False):
         '''
-        Add a controller to the IPS.
+        Adds a controller to the IPS.
 
         Args:
             func_or_value: The following three types of "func_or_value" argument are acceptable,
@@ -182,9 +182,9 @@ class IPS(Particles):
                           (2) a vectorised function (operates on a set of particles per execution),
                           (3) (a) fixed value(s) (scalar or array-like).
                           If "func_or_value" is a callable function and the number of arguments of the function is more
-                          than two, the first argument must be named as "x", representing the target (positions/velocities 
-                          or binary interactions of them in case of an "interacting" controller) of the calculation. The 
-                          rest must be correctly named to match existing properties.
+                          than two, the first argument must be named as "x", representing the target
+                          (positions/velocities or binary interactions of them in case of an "interacting" controller)
+                          of the calculation. The rest must be correctly named to match existing properties.
             type (str): Type of the controller. An "external" controller is a global effect influencing all the
                         particles in the system. An "interacting" controller affects binary pairs of particles depending
                         on their relative locations. In case of a non-vectorised function, the input variable of an
@@ -194,7 +194,7 @@ class IPS(Particles):
             use_numba (bool): Only used when "func_or_value" is a function, use numba just-in-time compiler to
                               optimise function, works only if the function takes one argument as numba does not support 
                               **kwargs arguments.
-            force_nonvectorise (bool): Only used when "func_or_value" is a function, force to use non-vectorised mode
+            force_nonvectorise (bool): Only used when "func_or_value" is a function, force using non-vectorised mode
                                        if True to prevent unintended automatic vectorisation.
             verbose (bool):  Verbose messages.
             suppress_warnings (bool): Suppress warning messages.
@@ -243,7 +243,7 @@ class IPS(Particles):
         self.controller_objects[name] = C
 
     def reset_states(self):
-        '''Reset particle velocities if order is one, accelerations if order is two.'''
+        '''Resets particle velocities if order is one, accelerations if order is two.'''
         if self.order == 'first':
             self.velocity = np.zeros_like(self.velocity)
         else:  # order == 'second'
@@ -251,7 +251,7 @@ class IPS(Particles):
 
     def apply_controllers(self, which='all'):
         '''
-        Apply controllers to the particles.
+        Applies external and interacting controllers to the particles.
 
         Args:
             which (str): "all" to apply all controllers, or specify the name of a controller to apply.
@@ -285,7 +285,7 @@ class IPS(Particles):
                 self.acceleration += increment
 
     def apply_stochastic_terms(self, dt, sigma, gamma):
-        '''Add stochsticity to particle positions.'''
+        '''Adds stochsticity to particle positions.'''
         if self.order == 'first':
             if self._d == 1:
                 self.position += sigma * np.sqrt(dt) * np.random.randn(self._num)
@@ -301,7 +301,7 @@ class IPS(Particles):
 
     def update_states(self, dt):
         '''
-        Update paticles states.
+        Updates states of particles.
         
         Arg:
             dt (float): Time interval.
@@ -314,7 +314,7 @@ class IPS(Particles):
 
     def shuffle(self, seed=None, return_index=False):
         '''
-        Shuffle particle positions, velocities, accelerations. Also shuffle custom properties if they are of size
+        Shuffles particle positions, velocities, accelerations. Also shuffles custom properties if they are of size
         self.num.
         '''
         index = super().shuffle(seed=seed, return_index=True)
@@ -322,7 +322,7 @@ class IPS(Particles):
             for property_name in self.custom_properties:
                 property_ = self.get_property(property_name)
                 if getattr(property_, '__len__', None) is not None and len(property_) == self._num:
-                    getattr(self, property_name)['value'] = property_[index]
+                    setattr(self, property_name, property_[index])
         if return_index:
             return index
         else:
@@ -340,13 +340,13 @@ class IPS(Particles):
                 self.apply_boundary_condition()
         if len(self.custom_properties):
             for property_name in self.custom_properties:
-                property_ = getattr(self, property_name)
-                if property_['eager_evaluation']:
-                    new_property = property_['wrapper_fn_compute']()
-                    getattr(self, property_name)['value'] = new_property
+                wrapper = self.custom_properties[property_name].get('wrapper_fn_compute')
+                if wrapper is not None:  # update
+                    new_value = wrapper()
+                    setattr(self, property_name, new_value)
 
     def update_rbm_r(self, dt, sigma, gamma):
-        raise NotImplementedError('update_rbm_r')
+        raise NotImplementedError
 
     def update(self, dt, method='rbm', sigma=None, gamma=None):
         if method not in ['rbm', 'rbm-r']:
@@ -359,7 +359,7 @@ class IPS(Particles):
     def evolve_generator(self, dt, T, sigma=None, gamma=None, method='rbm', options=None, thinning=None,
                          early_stopping=None):
         '''
-        Evolve the IPS.
+        Evolves the IPS using random batch method.
 
         Create a generator of evolved result. More flexible than the "evolve" method.
 
@@ -429,7 +429,8 @@ class IPS(Particles):
 
                 if stops_if():
                     print(
-                        f'Trigger early stopping as "{early_stopping_property}" is {self.get_property(early_stopping_property)}.')
+                        f'Trigger early stopping as "{early_stopping_property}" \
+                        is {self.get_property(early_stopping_property)}.')
                     break
 
     def evolve(self, dt, T, sigma=None, gamma=None, method='rbm', options=None, thinning=None,
@@ -488,10 +489,10 @@ class IPS(Particles):
     def __str__(self):
         self.calc_speed()
         string = []
-        string.append(f'{self.order}-order IPS @t={self.t}, average speed {np.average(self.speed):.2f}')
+        string.append(f'{self.order}-order IPS @t={self.t}, average speed {np.average(self.get_property("speed")):.2f}')
         string.append(super().__str__())
         if len(self.custom_properties):
-            string.append(f'custom properties: {self.custom_properties}')
+            string.append(f'custom properties: {", ".join([str(s) for s in self.custom_properties])}')
         if len(self.controllers):
             for controller in self.controllers.values():
                 name = controller['name']
